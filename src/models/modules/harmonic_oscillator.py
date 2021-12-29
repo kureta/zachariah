@@ -30,7 +30,8 @@ class OscillatorBank(nn.Module):
         # zero out above nyquist
         mask = harmonics > self.sample_rate // 2
         harm_amps = harm_amps.masked_fill(mask, 0.0)
-        harm_amps /= harm_amps.sum(-1, keepdim=True)
+        # normalize distribution
+        # harm_amps /= harm_amps.sum(-1, keepdim=True)
         harmonics *= 2 * np.pi  # radians per second
         harmonics /= self.sample_rate  # radians per sample
         harmonics = self.rescale(harmonics)
