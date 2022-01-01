@@ -33,6 +33,7 @@ class MorleyTransform(nn.Module):
         transform = torch.abs(transform)
         amp = torch.sum(transform, dim=-1, keepdim=True)
         harmonic_distribution = transform / amp
-        amp *= 2.3823  # experimentally found normalization factor
+        amp *= 2.0
+        amp = torch.clip(amp, 0.0, 1.0).squeeze(-1)
 
-        return harmonic_distribution, amp.squeeze(-1)
+        return harmonic_distribution, amp
