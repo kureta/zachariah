@@ -13,9 +13,10 @@ class MorletTransform(nn.Module):
         self.tp = 1.0 / half_bandwidth
 
     def generate_morlet_matrix(self, f0):
+        # f0.shape = [batch, time, ch]
         tp = self.tp * self.sample_rate
-        fc = torch.einsum("ijk,k->ijk", f0, self.k) / self.sample_rate
-        fc_n = torch.einsum("ijk,l->ijkl", fc, self.n)
+        fc = torch.einsum("btc,k->btck", f0, self.k) / self.sample_rate
+        fc_n = torch.einsum("btck,n->btckn", fc, self.n)
 
         normalizer = (1 / np.sqrt(np.pi * tp)).astype("float32")
         gauss = torch.exp(-((self.n - self.win_length // 2) ** 2) / tp)
@@ -25,11 +26,12 @@ class MorletTransform(nn.Module):
         # Cut above nyquist
         result[fc > 0.5] = 0.0
 
+        # result.shape = [batch, time, ch, n_harmonics, win_length]
         return result
 
     def forward(self, audio_frames, f0):
         morlet = self.generate_morlet_matrix(f0)
-        transform = torch.einsum("bthn,btn->bth", morlet, audio_frames.type(torch.complex64))
+        transform = torch.einsum("btckn,btcn->btck", morlet, audio_frames.type(torch.complex64))
         transform = torch.abs(transform)
         amp = torch.sum(transform, dim=-1, keepdim=True)
         harmonic_distribution = transform / amp

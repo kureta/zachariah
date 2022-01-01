@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F  # noqa
-from einops import rearrange
+from einops import rearrange, reduce
 
 
 class OscillatorBank(nn.Module):
@@ -18,32 +18,44 @@ class OscillatorBank(nn.Module):
     def get_harmonic_frequencies(self, f0: torch.Tensor) -> torch.Tensor:
         # f0.shape = [batch, time, ch]
         # Calculate harmonic frequencies in cycles per seconds (Hz).
-        harmonic_frequencies = torch.einsum("ijk,k->ijk", f0, self.harmonics)
+        harmonic_frequencies = torch.einsum("btc,n->btcn", f0, self.harmonics)
 
         harmonic_frequencies *= 2 * np.pi  # radians per second
         harmonic_frequencies /= self.sample_rate  # radians per sample
 
-        # harmonic_frequencies.shape = [batch, time, n_harmonics]
+        # harmonic_frequencies.shape = [batch, time, ch, n_harmonics]
         return harmonic_frequencies
 
     def get_phases(self, harmonic_frequencies: torch.Tensor) -> torch.Tensor:
-        # harmonic_frequencies.shape = [batch, time, n_harmonics]
+        # harmonic_frequencies.shape = [batch, time, ch, n_harmonics]
+        # TODO: refactor repeated code.
+        c, n = harmonic_frequencies.shape[-2:]
+        harmonic_frequencies = rearrange(harmonic_frequencies, "b t c n -> b t (c n)")
         harmonic_frequencies = self.rescale(harmonic_frequencies)
+        harmonic_frequencies = rearrange(harmonic_frequencies, "b t (c n) -> b t c n", c=c, n=n)
+        # TODO: This way, all channels of multi-channel audio are perfectly in phase.
+        #       Might cause problems.
         phases = torch.cumsum(harmonic_frequencies, dim=1)
         phases %= 2 * np.pi
-        # phases.shape = [batch, time, n_harmonics]
+        # phases.shape = [batch, time, ch, n_harmonics]
         return phases
 
     def get_signal(
         self, harmonic_distribution: torch.Tensor, amplitude: torch.Tensor, phases: torch.Tensor
     ) -> torch.Tensor:
-        # harmonic_distribution.shape = [batch, time, n_harmonics]
+        # harmonic_distribution.shape = [batch, time, ch, n_harmonics]
         # amplitude.shape = [batch, time, ch]
-        # phases.shape = [batch, time, n_harmonics]
+        # phases.shape = [batch, time, ch, n_harmonics]
         amplitude = self.rescale(amplitude)
+
+        c, n = harmonic_distribution.shape[-2:]
+        harmonic_distribution = rearrange(harmonic_distribution, "b t c n -> b t (c n)")
         harmonic_distribution = self.rescale(harmonic_distribution)
-        signal = amplitude * harmonic_distribution * torch.sin(phases)
-        signal = torch.sum(signal, dim=2)
+        harmonic_distribution = rearrange(harmonic_distribution, "b t (c n) -> b t c n", c=c, n=n)
+
+        signal = torch.einsum("btc,btcn->btcn", amplitude, harmonic_distribution)
+        signal = torch.einsum("btcn,btcn->btcn", signal, torch.sin(phases))
+        signal = reduce(signal, "b t c n -> b t c", "sum")
         # signal.shape = [batch, time, ch]
         return signal
 
@@ -61,8 +73,8 @@ class OscillatorBank(nn.Module):
 
     def forward(self, f0: torch.Tensor, amplitude: torch.Tensor, harmonic_distribution: torch.Tensor) -> torch.Tensor:
         # f0.shape = [batch, time, ch]
-        # amplitude.shape = [batch_time, ch]
-        # harmonic_distribution.shape = [batch, time, n_harmonics]
+        # amplitude.shape = [batch, time, ch]
+        # harmonic_distribution.shape = [batch, time, ch, n_harmonics]
         harmonic_frequencies = self.get_harmonic_frequencies(f0)
         phases = self.get_phases(harmonic_frequencies)
 
