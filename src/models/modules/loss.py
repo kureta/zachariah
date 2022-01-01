@@ -3,6 +3,8 @@ import torch
 import torch.nn as nn
 
 
+# TODO: This consumes too much memory. Find a way to reduce this huge morlet matrix
+#       to a series of lower dimensional multiplications
 class MorletTransform(nn.Module):
     def __init__(self, sample_rate, win_length, n_harmonics, half_bandwidth=1.0):
         super().__init__()
@@ -30,6 +32,8 @@ class MorletTransform(nn.Module):
         return result
 
     def forward(self, audio_frames, f0):
+        # audio_frames.shape = [batch, time, ch, win_length]
+        # f0.shape = [batch, time, ch]
         morlet = self.generate_morlet_matrix(f0)
         transform = torch.einsum("btckn,btcn->btck", morlet, audio_frames.type(torch.complex64))
         transform = torch.abs(transform)
@@ -38,4 +42,6 @@ class MorletTransform(nn.Module):
         amp *= 2.0
         amp = torch.clip(amp, 0.0, 1.0).squeeze(-1)
 
+        # harmonic_distribution.shape = [batch, time, ch, n_harmonics]
+        # amp.shape = [batch, time, ch]
         return harmonic_distribution, amp

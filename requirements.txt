@@ -41,3 +41,4 @@ mypy            # type-checking
 librosa         # audio module
 torchcrepe      # pitch detection
 einops          # better reshape, squeeze, etc.
+opt_einsum      # optimized einsum
