@@ -40,3 +40,4 @@ nbdime          # clean notebooks before commit
 mypy            # type-checking
 librosa         # audio module
 torchcrepe      # pitch detection
+einops          # better reshape, squeeze, etc.
