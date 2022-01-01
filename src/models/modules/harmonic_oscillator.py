@@ -14,14 +14,9 @@ class OscillatorBank(nn.Module):
         self.sample_rate = sample_rate
         self.hop_size = hop_length
 
-        self.harmonics: torch.Tensor
-        self.register_buffer(
-            "harmonics", torch.arange(1, self.n_harmonics + 1, step=1), persistent=False
-        )
+        self.harmonics = torch.arange(1, self.n_harmonics + 1, step=1)
 
-    def prepare_harmonics(
-        self, f0: torch.Tensor, harm_amps: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def prepare_harmonics(self, f0: torch.Tensor, harm_amps: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         # Cut above Nyquist and normalize
         # Hz (cycles per second)
         harmonics = torch.einsum("ijk,k->ijk", f0, self.harmonics)
@@ -41,9 +36,7 @@ class OscillatorBank(nn.Module):
         phases %= 2 * np.pi
         return phases
 
-    def generate_signal(
-        self, harm_amps: torch.Tensor, loudness: torch.Tensor, phases: torch.Tensor
-    ) -> torch.Tensor:
+    def generate_signal(self, harm_amps: torch.Tensor, loudness: torch.Tensor, phases: torch.Tensor) -> torch.Tensor:
         loudness = self.rescale(loudness)
         harm_amps = self.rescale(harm_amps)
         signal = loudness * harm_amps * torch.sin(phases)
@@ -58,9 +51,7 @@ class OscillatorBank(nn.Module):
             align_corners=True,
         ).permute(0, 2, 1)
 
-    def forward(
-        self, f0: torch.Tensor, loudness: torch.Tensor, harm_amps: torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, f0: torch.Tensor, loudness: torch.Tensor, harm_amps: torch.Tensor) -> torch.Tensor:
         harmonics, harm_amps = self.prepare_harmonics(f0, harm_amps)
         phases = self.generate_phases(harmonics)
         signal = self.generate_signal(harm_amps, loudness, phases)
