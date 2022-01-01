@@ -24,9 +24,7 @@ class OscillatorBank(nn.Module):
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         # Cut above Nyquist and normalize
         # Hz (cycles per second)
-        harmonics = (
-            self.harmonics.unsqueeze(0).unsqueeze(0).repeat(f0.shape[0], f0.shape[1], 1) * f0
-        )
+        harmonics = torch.einsum("ijk,k->ijk", f0, self.harmonics)
         # zero out above nyquist
         mask = harmonics > self.sample_rate // 2
         harm_amps = harm_amps.masked_fill(mask, 0.0)
