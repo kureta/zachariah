@@ -22,7 +22,7 @@ def pad_audio(x, win_length, hop_length, strict=True):
 def pad_audio_basic(x, win_length, hop_length, strict=True):
     # x.shape = [batch, time, ch]
     # This pads audio so that the middle of the first fft window is on the beginning of the audio.
-    length = x.shape[-1]
+    length = x.shape[1]
     if length % hop_length != 0:
         if strict:
             raise ValueError("In strict mode, audio length must be a multiple of hop length")
@@ -34,6 +34,7 @@ def pad_audio_basic(x, win_length, hop_length, strict=True):
     padding_right = win_length // 2 - hop_length
     x = F.pad(x, (0, 0, padding_left, padding_right))
 
+    # return shape = [batch, time]
     return x
 
 
