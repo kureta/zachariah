@@ -48,3 +48,41 @@ class MorletTransform(nn.Module):
         # harmonic_distribution.shape = [batch, time, ch, n_harmonics]
         # amp.shape = [batch, time, ch]
         return harmonic_distribution, amp
+
+
+class STFT(nn.Module):
+    def __init__(self, sample_rate, win_length, n_harmonics):
+        super().__init__()
+        self.base_f = sample_rate / win_length
+        self.max_idx = win_length / 2
+        k = torch.arange(1, n_harmonics + 1)
+        hann = torch.hann_window(win_length)
+        self.register_buffer("hann", hann)
+        self.register_buffer("k", k)
+
+    def forward(self, x, f0):
+        # f0.shape = [batch, time, ch]
+        # x.shape = [batch, time, ch, n]
+
+        # window signal
+        x = oe.contract("btcn,n->btcn", x, self.hann)
+        stft = torch.abs(torch.fft.rfft(x, norm="forward"))
+        stft[..., 0] = 0.0
+
+        harmonics = oe.contract("btc,k->btck", f0, self.k) / self.base_f
+
+        ceil_idx = torch.ceil(harmonics).type(torch.long)
+        floor_idx = torch.floor(harmonics).type(torch.long)
+        a = torch.sqrt(harmonics - floor_idx)
+        b = torch.sqrt(ceil_idx - harmonics)
+        ceil_idx[ceil_idx > self.max_idx] = 0
+        floor_idx[floor_idx > self.max_idx] = 0
+        ceil = torch.gather(stft, -1, ceil_idx)
+        floor = torch.gather(stft, -1, floor_idx)
+        dist = a * ceil + b * floor
+
+        amp = torch.sum(dist, dim=-1, keepdim=True)
+        dist /= amp
+        amp *= 2
+
+        return dist, amp.squeeze(-1)
