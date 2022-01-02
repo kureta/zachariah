@@ -1,4 +1,5 @@
 import numpy as np
+import opt_einsum as oe
 import torch
 import torch.nn as nn
 
@@ -10,15 +11,17 @@ class MorletTransform(nn.Module):
         super().__init__()
         self.sample_rate = sample_rate
         self.win_length = win_length
-        self.n = torch.arange(win_length, dtype=torch.float32)
-        self.k = torch.arange(1, n_harmonics + 1, dtype=torch.float32)
+        n = torch.arange(win_length, dtype=torch.float32)
+        k = torch.arange(1, n_harmonics + 1, dtype=torch.float32)
+        self.register_buffer("n", n)
+        self.register_buffer("k", k)
         self.tp = 1.0 / half_bandwidth
 
     def generate_morlet_matrix(self, f0):
         # f0.shape = [batch, time, ch]
         tp = self.tp * self.sample_rate
-        fc = torch.einsum("btc,k->btck", f0, self.k) / self.sample_rate
-        fc_n = torch.einsum("btck,n->btckn", fc, self.n)
+        fc = oe.contract("btc,k->btck", f0, self.k, backend="torch") / self.sample_rate
+        fc_n = oe.contract("btck,n->btckn", fc, self.n, backend="torch")
 
         normalizer = (1 / np.sqrt(np.pi * tp)).astype("float32")
         gauss = torch.exp(-((self.n - self.win_length // 2) ** 2) / tp)
@@ -35,7 +38,7 @@ class MorletTransform(nn.Module):
         # audio_frames.shape = [batch, time, ch, win_length]
         # f0.shape = [batch, time, ch]
         morlet = self.generate_morlet_matrix(f0)
-        transform = torch.einsum("btckn,btcn->btck", morlet, audio_frames.type(torch.complex64))
+        transform = oe.contract("btckn,btcn->btck", morlet, audio_frames.type(torch.complex64), backend="torch")
         transform = torch.abs(transform)
         amp = torch.sum(transform, dim=-1, keepdim=True)
         harmonic_distribution = transform / amp
