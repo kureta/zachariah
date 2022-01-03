@@ -42,3 +42,4 @@ librosa         # audio module
 torchcrepe      # pitch detection
 einops          # better reshape, squeeze, etc.
 opt_einsum      # optimized einsum
+scipy           # for finding fast fft sizes

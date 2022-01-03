@@ -50,6 +50,7 @@ class MorletTransform(nn.Module):
         return harmonic_distribution, amp
 
 
+# TODO: This might be faster using scipy.fftpack.helper.next_fast_len to find an optimum win_length
 class STFT(nn.Module):
     def __init__(self, sample_rate, win_length, n_harmonics):
         super().__init__()
@@ -71,18 +72,19 @@ class STFT(nn.Module):
 
         harmonics = oe.contract("btc,k->btck", f0, self.k) / self.base_f
 
-        ceil_idx = torch.ceil(harmonics).type(torch.long)
-        floor_idx = torch.floor(harmonics).type(torch.long)
+        ceil_idx = torch.ceil(harmonics)
+        floor_idx = torch.floor(harmonics)
         a = torch.sqrt(harmonics - floor_idx)
         b = torch.sqrt(ceil_idx - harmonics)
         ceil_idx[ceil_idx > self.max_idx] = 0
         floor_idx[floor_idx > self.max_idx] = 0
-        ceil = torch.gather(stft, -1, ceil_idx)
-        floor = torch.gather(stft, -1, floor_idx)
+        ceil = torch.gather(stft, -1, ceil_idx.type(torch.long))
+        floor = torch.gather(stft, -1, floor_idx.type(torch.long))
         dist = a * ceil + b * floor
 
         amp = torch.sum(dist, dim=-1, keepdim=True)
         dist /= amp
-        amp *= 2
+        # TODO: I don't know why multiplication with sqrt(2) is necessary.
+        amp *= 2 * np.sqrt(2)
 
         return dist, amp.squeeze(-1)

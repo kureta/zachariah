@@ -1,10 +1,12 @@
 import numpy as np
+import opt_einsum as oe
 import torch
 import torch.nn as nn
 import torch.nn.functional as F  # noqa
 from einops import rearrange, reduce
 
 
+# TODO: use opt_einsum, expressions, and constants to further optimize performance
 class OscillatorBank(nn.Module):
     def __init__(self, n_harmonics: int = 60, sample_rate: int = 16000, hop_length: int = 64):
         super().__init__()
@@ -18,7 +20,7 @@ class OscillatorBank(nn.Module):
     def get_harmonic_frequencies(self, f0: torch.Tensor) -> torch.Tensor:
         # f0.shape = [batch, time, ch]
         # Calculate harmonic frequencies in cycles per seconds (Hz).
-        harmonic_frequencies = torch.einsum("btc,n->btcn", f0, self.harmonics)
+        harmonic_frequencies = oe.contract("btc,n->btcn", f0, self.harmonics)
 
         harmonic_frequencies *= 2 * np.pi  # radians per second
         harmonic_frequencies /= self.sample_rate  # radians per sample
@@ -53,8 +55,8 @@ class OscillatorBank(nn.Module):
         harmonic_distribution = self.rescale(harmonic_distribution)
         harmonic_distribution = rearrange(harmonic_distribution, "b t (c n) -> b t c n", c=c, n=n)
 
-        signal = torch.einsum("btc,btcn->btcn", amplitude, harmonic_distribution)
-        signal = torch.einsum("btcn,btcn->btcn", signal, torch.sin(phases))
+        signal = oe.contract("btc,btcn->btcn", amplitude, harmonic_distribution)
+        signal = oe.contract("btcn,btcn->btcn", signal, torch.sin(phases))
         signal = reduce(signal, "b t c n -> b t c", "sum")
         # signal.shape = [batch, time, ch]
         return signal
