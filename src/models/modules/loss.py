@@ -87,4 +87,4 @@ class STFT(nn.Module):
         # TODO: I don't know why multiplication with sqrt(2) is necessary.
         amp *= 2 * np.sqrt(2)
 
-        return dist, amp.squeeze(-1)
+        return dist, amp.squeeze(-1), ceil_idx, floor_idx, ceil - a * ceil, floor - b * floor
