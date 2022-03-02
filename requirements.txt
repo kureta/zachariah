@@ -1,13 +1,13 @@
 # --------- pytorch --------- #
-torch>=1.10.0
-torchvision>=0.11.0
-pytorch-lightning>=1.5.0
-torchmetrics>=0.6.0
+torch
+torchvision
+pytorch-lightning
+torchmetrics
 
 # --------- hydra --------- #
-hydra-core==1.1.0
-hydra-colorlog==1.1.0
-hydra-optuna-sweeper==1.1.0
+hydra-core
+hydra-colorlog
+hydra-optuna-sweeper
 # hydra-ax-sweeper
 # hydra-ray-launcher
 # hydra-submitit-launcher
@@ -43,3 +43,4 @@ torchcrepe      # pitch detection
 einops          # better reshape, squeeze, etc.
 opt_einsum      # optimized einsum
 scipy           # for finding fast fft sizes
+ipywidgets	# for tqdm in notebooks

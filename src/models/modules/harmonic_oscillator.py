@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F  # noqa
 from einops import rearrange, reduce
+from torchcrepe.convert import cents_to_frequency
 
 
 # TODO: use opt_einsum, expressions, and constants to further optimize performance
@@ -15,7 +16,8 @@ class OscillatorBank(nn.Module):
         self.sample_rate = sample_rate
         self.hop_size = hop_length
 
-        self.harmonics = torch.arange(1, self.n_harmonics + 1, step=1)
+        harmonics = torch.arange(1, self.n_harmonics + 1, step=1)
+        self.register_buffer("harmonics", harmonics, persistent=False)
 
     def get_harmonic_frequencies(self, f0: torch.Tensor) -> torch.Tensor:
         # f0.shape = [batch, time, ch]
@@ -73,10 +75,13 @@ class OscillatorBank(nn.Module):
         # output.shape = [batch, time, ch]
         return rearrange(x, "b c 1 t -> b t c")
 
-    def forward(self, f0: torch.Tensor, amplitude: torch.Tensor, harmonic_distribution: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, cents: torch.Tensor, amplitude: torch.Tensor, harmonic_distribution: torch.Tensor
+    ) -> torch.Tensor:
         # f0.shape = [batch, time, ch]
         # amplitude.shape = [batch, time, ch]
         # harmonic_distribution.shape = [batch, time, ch, n_harmonics]
+        f0 = cents_to_frequency(cents)
         harmonic_frequencies = self.get_harmonic_frequencies(f0)
         phases = self.get_phases(harmonic_frequencies)
 
