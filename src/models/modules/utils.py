@@ -13,7 +13,7 @@ def pad_audio(x, win_length, hop_length, strict=True):
         if strict:
             raise ValueError("In strict mode, audio length must be a multiple of hop length")
         else:
-            padding_right = hop_length - length % hop_length
+            padding_right = hop_length - (length % hop_length)
             x = F.pad(x, (0, padding_right))
 
     padding_left = win_length // 2

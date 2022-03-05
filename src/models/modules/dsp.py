@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.fft as fft
 import torch.nn as nn
-import torch.nn.functional as F
+import torch.nn.functional as F  # noqa
 from einops import rearrange
 from einops.layers.torch import Rearrange, Reduce
 
