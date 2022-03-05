@@ -6,7 +6,9 @@ import torch.nn.functional as F  # noqa
 def pad_audio(x, win_length, hop_length, strict=True):
     # x.shape = [batch, time, ch]
     # This pads audio so that the middle of the first fft window is on the beginning of the audio.
-    length = x.shape[1]
+    # make x channel first
+    x = x.transpose(1, 2)
+    length = x.shape[2]
     if length % hop_length != 0:
         if strict:
             raise ValueError("In strict mode, audio length must be a multiple of hop length")
@@ -19,6 +21,7 @@ def pad_audio(x, win_length, hop_length, strict=True):
     x = F.pad(x, (padding_left, padding_right))
 
     # return shape = [batch, time]
+    x = x.transpose(1, 2)
     return x
 
 
@@ -46,5 +49,4 @@ def exp_sigmoid(
     Returns:
         A tensor with point-wise non-linearity applied.
     """
-    # x = torch_float32(x)
     return max_value * torch.sigmoid(x) ** np.log(exponent) + threshold
